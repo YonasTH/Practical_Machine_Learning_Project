@@ -1,0 +1,138 @@
+---
+title: "Practical Machine Learning Project"
+author: "YonasTH"
+date: "August 11, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, results='asis', cache=TRUE, message=F, warning = F, digits = 2)
+```
+
+## Introduction  
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement-a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).  
+
+## Project Objective    
+Six young health participants were asked to perform one set of 10 repetitions of the
+Unilateral Dumbbell Biceps Curl in five different fashions:    
+- exactly according to the specification (Class A)  
+- throwing the elbows to the front (Class B)  
+- lifting the dumbbell only halfway (Class C)  
+- lowering the dumbbell only halfway (Class D)  
+- throwing the hips to the front (Class E)    
+The goal of this project is to predict the manner in which they did the exercise and these are contained in the *classe* variabe.    
+
+## Load Data  
+```{r echo=TRUE, results="hide", message= F, warning = F}
+library(caret)
+training <- read.csv("~/Practical Machine Learning/Course_project/pml-training.csv")
+testing <- read.csv("~/Practical Machine Learning/Course_project/pml-testing.csv")
+```
+## Exploratory Data Analysis    
+```{r results = "markup"}
+length(names(training))
+```  
+There are `r length(names(training))` variables in the training dataset, the last of which is the *classe* variable.  
+```{r}
+#check if there are missing values
+sum(is.na(training))
+```    
+There are a number of NA values that need to be handled. Variables containing NAs may be omitted from the prediction or values can be imputed using the nearest neighbor method.  
+The last columns in the training and testing data are *Classe* and *problem_id*, respectively.Excluding the last columns, verify that all column names in the training and testing datasets are identical.  
+```{r}
+colnames_train <- colnames(training)
+colnames_test <- colnames(testing)
+all.equal(colnames_train[1:length(colnames_train)-1], colnames_test[1:length(colnames_test)-1])
+```  
+  
+## Preprocessing
+
+The testing set contains only 20 observations while the training set contains 19622 observations. The training set is partitioned into training and testing sets for cross-validation.The final selected model will then be applied on the testing set of 20 observations.    
+
+```{r results='hide'}
+inTrain <- createDataPartition(training$classe, p=0.7, list=FALSE)
+raw_training_cv <- training[inTrain, ]
+raw_testing_cv <- training[-inTrain,]
+
+#remove covariates with near-zero-variablity 
+nzv <- nearZeroVar(raw_training_cv, saveMetrics=TRUE)
+raw_training_cv <- raw_training_cv[ , nzv$nzv==FALSE]
+raw_testing_cv <- raw_testing_cv[ ,nzv$nzv==FALSE]
+
+#Keep only variables without NAs
+training_cv <- raw_training_cv[ , colSums(is.na(raw_training_cv))==0]
+#remove the first six columns of raw_training_cv, which are row numbers and time series info; the data analysis has no time-dependence
+training_cv <- training_cv[c(-1,-2,-3,-4,-5,-6)]
+length(colnames(training_cv))
+```  
+The **training_cv** data now contain `r length(colnames(training_cv))`  variables.Transform **testing_cv** and **testing** datasets so that they contain only variables in **training_cv**.  
+
+```{r}
+testing_cv <- raw_testing_cv[ , colnames(training_cv)] #same colnames as training_cv
+testing <- testing[ , colnames(training_cv[ ,-53])]#same as training_cv w/o last column
+```    
+## Training and Prediction with Decision Trees
+```{r results="hide"}
+library(randomForest)
+library(rattle)
+library(rpart.plot)
+```
+```{r cache=TRUE}
+set.seed(12345)
+Fit_trees <- train(classe~., data = training_cv, method="rpart")
+fancyRpartPlot(Fit_trees$finalModel)
+```
+```{r results = 'markup'}
+Prediction_trees <- predict(Fit_trees, testing_cv)
+conf_mat <- confusionMatrix(Prediction_trees, testing_cv$classe )
+conf_mat
+```    
+The accuracy is very low (`r conf_mat$overall[[1]]`).  
+
+## Training and Prediciton with Random Forests  
+```{r results="hide"}
+library(randomForest)
+```  
+```{r cache = TRUE}
+set.seed(12345)
+Fit_rf <- train(classe~., data = training_cv, method = "rf")
+plot(Fit_rf)
+```
+```{r results = 'markup'}
+Prediction_rf <- predict(Fit_rf, testing_cv)
+conf_mat2 <- confusionMatrix(Prediction_rf, testing_cv$classe)
+conf_mat2
+```  
+  
+The accuracy of the random forest method is very high (`r conf_mat2$overall[[1]]`). Save the result **Fit_rf** object for later use, say in reporting.  
+```{r results="hide"}
+save(Fit_rf, file="Fit_rf.RData")
+```
+The first five variables of high importance in the model are reported as follows together with their relative importance index:  
+```{r results = 'markup'}
+Var_imp <- varImp(Fit_rf)$importance
+Var_imp[head(order(Var_imp, decreasing=TRUE), 5L), , drop=FALSE]
+```  
+  
+## Prediction on the 20-sample Test Set  
+The 20 samples are classified into the following classes by using the randomForest model developed.  
+```{r results='markup'}
+#load the saved training model result object
+load(file = "Fit_rf.RData", verbose = TRUE)
+prediction_onTEST <- predict(Fit_rf, testing)
+prediction_onTEST
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
