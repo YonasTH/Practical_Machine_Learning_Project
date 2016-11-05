@@ -1,7 +1,7 @@
 ---
 title: "Practical Machine Learning Project"
 author: "YonasTH"
-date: "August 11, 2016"
+date: "November 5, 2016"
 output: html_document
 ---
 
@@ -88,7 +88,7 @@ Prediction_trees <- predict(Fit_trees, testing_cv)
 conf_mat <- confusionMatrix(Prediction_trees, testing_cv$classe )
 conf_mat
 ```    
-The accuracy is very low (`r conf_mat$overall[[1]]`).  
+The **accuracy** is very low (`r round(conf_mat$overall[[1]],2)`) and the **out of sample error** is `r round(1-conf_mat$overall[[1]],2)`.  
 
 ## Training and Prediciton with Random Forests  
 ```{r results="hide"}
@@ -105,7 +105,8 @@ conf_mat2 <- confusionMatrix(Prediction_rf, testing_cv$classe)
 conf_mat2
 ```  
   
-The accuracy of the random forest method is very high (`r conf_mat2$overall[[1]]`). Save the result **Fit_rf** object for later use, say in reporting.  
+The **accuracy** of the random forest method is very high (`r round(conf_mat2$overall[[1]],2)`). **Out of sample error** is, therefore, `r round(1-conf_mat2$overall[[1]],2)`. 
+Save the result **Fit_rf** object for later use, say in reporting.  
 ```{r results="hide"}
 save(Fit_rf, file="Fit_rf.RData")
 ```
